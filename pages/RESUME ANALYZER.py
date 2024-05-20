@@ -21,6 +21,20 @@ st.set_page_config(layout="wide", page_icon='logo/logo2.png', page_title="RESUME
 add_logo()
 sidebar()
 
+def course_recommender(course_list):
+    st.subheader("*Courses & Certificates🎓 Recommendations*")
+    c = 0
+    rec_course = []
+    no_of_reco = st.slider('Choose Number of Course Recommendations:', 1, 10, 4)
+    random.shuffle(course_list)
+    for c_name, c_link in course_list:
+        c += 1
+        st.markdown(f"({c}) [{c_name}]({c_link})")
+        rec_course.append(c_name)
+        if c == no_of_reco:
+            break
+    return rec_course
+
 
 def run():
         st.title("Resume Analyser")
@@ -41,9 +55,9 @@ def run():
             if resume_data:
                 ## Get the whole resume data
                 resume_text = utils.pdf_reader(pdf_file)
-                predicted_domain = predict_domain(resume_text)
+                # predicted_domain = predict_domain(resume_text)
                 st.header("Resume Analysis")
-                st.write("Predicted Job Domain : " + predicted_domain)
+                # st.write("Predicted Job Domain : " + predicted_domain)
                 try:
                     st.success("Hello "+ resume_data['name'])
                     st.subheader("Your Basic info")

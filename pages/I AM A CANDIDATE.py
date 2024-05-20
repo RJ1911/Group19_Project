@@ -48,28 +48,33 @@ def app():
     c1, c2 = st.columns((3,2))
     # upload cv + turn pdf to text------------------display##
     cv=c1.file_uploader('Upload your CV', type='pdf')
+    resume_text = c1.text_area('Or paste your resume text here')
+
     # career level
     job_loc = MongoDB_function.get_collection_as_dataframe(dataBase,collection3)
     all_locations=list(job_loc["location"].dropna().unique())
 
-    RL = c2.multiselect('Filter', all_locations )
+    RL = c2.multiselect('Filter Location', all_locations )
     #print(RL[0])
    
  
     # number of job recommend slider------------------display##
     no_of_jobs = st.slider('Number of Job Recommendations:', min_value=1, max_value=100, step=10)
 
-    if cv is not None:
+    if cv or resume_text:
         if st.button('Proceed Further !! '):
             with st_lottie_spinner(url, key="download",    reverse=True,speed=1,loop=True,quality='high',):
                 time.sleep(10)
                 try:
                     count_=0
-                    cv_text = utils.extract_data(cv) # (OCR function)
-                        # print(cv_text)
-                    encoded_pdf=utils.pdf_to_base64(cv)
-                    resume_data = ResumeParser(cv).get_extracted_data()
-                    resume_data["pdf_to_base64"]=encoded_pdf
+                    if cv:
+                        cv_text = utils.extract_data(cv)  # Extract text from uploaded PDF
+                        encoded_pdf = utils.pdf_to_base64(cv)
+                        resume_data = ResumeParser(cv).get_extracted_data()
+                        resume_data["pdf_to_base64"] = encoded_pdf
+                    else:
+                        cv_text = resume_text
+                        resume_data = {"text": cv_text}
 
                     # inserting data into mongodb           
                     timestamp = utils.generateUniqueFileName()
@@ -189,86 +194,86 @@ def app():
 
                     locations_df['index'] = locations_df['index'].apply(lambda x: x.replace("Area", "") if "Area" in x else x)
 
-                    #Adding request limit as 1 to follow guidelines
-                    locator = Nominatim(user_agent="myGeocoder")
-                    geocode = RateLimiter(locator.geocode, min_delay_seconds=1) #1 second per api request
+                    # #Adding request limit as 1 to follow guidelines
+                    # locator = Nominatim(user_agent="myGeocoder")
+                    # geocode = RateLimiter(locator.geocode, min_delay_seconds=1) #1 second per api request
 
-                    #Extracting lat, long, alt
-                    locations_df['loc_geo'] = locations_df['index'].apply(geocode)
-                    locations_df['point'] = locations_df['loc_geo'].apply(lambda loc: tuple(loc.point) if loc else None)
+                    # #Extracting lat, long, alt
+                    # locations_df['loc_geo'] = locations_df['index'].apply(geocode)
+                    # locations_df['point'] = locations_df['loc_geo'].apply(lambda loc: tuple(loc.point) if loc else None)
 
-                    # split point column into latitude, longitude and altitude columns
-                    locations_df[['latitude', 'longitude', 'altitude']] = pd.DataFrame(locations_df['point'].tolist(), index=locations_df.index)
+                    # # split point column into latitude, longitude and altitude columns
+                    # locations_df[['latitude', 'longitude', 'altitude']] = pd.DataFrame(locations_df['point'].tolist(), index=locations_df.index)
 
-                    #dropping any null values from lat / long
-                    locations_df.dropna(subset=['latitude'], inplace=True)
-                    locations_df.dropna(subset=['longitude'], inplace=True)
+                    # #dropping any null values from lat / long
+                    # locations_df.dropna(subset=['latitude'], inplace=True)
+                    # locations_df.dropna(subset=['longitude'], inplace=True)
 
-                    #Set start location for map
-                    folium_map = folium.Map(location=[12.9767936, 77.590082],
-                                            zoom_start=11,
-                                            tiles= "openstreetmap",)
+                    # #Set start location for map
+                    # folium_map = folium.Map(location=[12.9767936, 77.590082],
+                    #                         zoom_start=11,
+                    #                         tiles= "openstreetmap",)
                     
-                    #Adding points to map
-                    for lat, lon, ind, job_no in zip(locations_df['latitude'], locations_df['longitude'], locations_df['index'], locations_df['location']):
-                        label = folium.Popup("Area: " + ind + "<br> Number of Jobs: " + str(job_no), max_width=500)
-                        folium.CircleMarker(
-                            [lat, lon],
-                            radius=10,
-                            popup=label,
-                            fill = True,
-                            color='red',
-                            fill_col = "lightblue",
-                            icon_size = (150,150),
-                            ).add_to(folium_map)
+                    # #Adding points to map
+                    # for lat, lon, ind, job_no in zip(locations_df['latitude'], locations_df['longitude'], locations_df['index'], locations_df['location']):
+                    #     label = folium.Popup("Area: " + ind + "<br> Number of Jobs: " + str(job_no), max_width=500)
+                    #     folium.CircleMarker(
+                    #         [lat, lon],
+                    #         radius=10,
+                    #         popup=label,
+                    #         fill = True,
+                    #         color='red',
+                    #         fill_col = "lightblue",
+                    #         icon_size = (150,150),
+                    #         ).add_to(folium_map)
 
                     # qualification bar chart
-                    db_expander = st.expander(label='CV dashboard:')
-                    with db_expander:
-                        available_locations = df3.location.value_counts().sum()
-                        all_locations = df3.location.value_counts().sum() + df3.location.isnull().sum()
+                    # db_expander = st.expander(label='CV dashboard:')
+                    # with db_expander:
+                    #     available_locations = df3.location.value_counts().sum()
+                    #     all_locations = df3.location.value_counts().sum() + df3.location.isnull().sum()
                 
-                        st.write(" **JOB LOCATIONS FROM**", available_locations, "**OF**", all_locations, "**JOBS**")
+                    #     st.write(" **JOB LOCATIONS FROM**", available_locations, "**OF**", all_locations, "**JOBS**")
 
-                        folium_static(folium_map, width=1380)
+                    #     # folium_static(folium_map, width=1380)
 
-                        chart2, chart3,chart1 = st.columns(3)
+                    #     chart2, chart3,chart1 = st.columns(3)
 
-                        with chart3:
-                            st.write("<p style='font-size:17px;font-family: Verdana, sans-serif'> RATINGS W.R.T Company</p>", unsafe_allow_html=True)
+                    #     with chart3:
+                    #         st.write("<p style='font-size:17px;font-family: Verdana, sans-serif'> RATINGS W.R.T Company</p>", unsafe_allow_html=True)
 
-                            rating_count = final_jobrecomm[["rating","company"]]
-                            fig = px.pie(rating_count, values = "rating", names = "company", width=600)
-                            fig.update_layout(showlegend=True)
-                            st.plotly_chart(fig, use_container_width=True,)
+                    #         rating_count = final_jobrecomm[["rating","company"]]
+                    #         fig = px.pie(rating_count, values = "rating", names = "company", width=600)
+                    #         fig.update_layout(showlegend=True)
+                    #         st.plotly_chart(fig, use_container_width=True,)
 
-                        with chart2:
-                            st.write("<p style='font-size:17px;font-family: Verdana, sans-serif'> REVIEWS COUNT W.R.T Company</p>", unsafe_allow_html=True)
-                            review_count = final_jobrecomm[["reviewsCount","company"]]
-                            fig = px.pie(review_count, values = "reviewsCount", names = "company", width=600)
-                            fig.update_layout(showlegend=True)
-                            st.plotly_chart(fig, use_container_width=True,)
+                    #     with chart2:
+                    #         st.write("<p style='font-size:17px;font-family: Verdana, sans-serif'> REVIEWS COUNT W.R.T Company</p>", unsafe_allow_html=True)
+                    #         review_count = final_jobrecomm[["reviewsCount","company"]]
+                    #         fig = px.pie(review_count, values = "reviewsCount", names = "company", width=600)
+                    #         fig.update_layout(showlegend=True)
+                    #         st.plotly_chart(fig, use_container_width=True,)
 
-                        with chart1:
+                    #     with chart1:
 
 
-                            final_salary = final_jobrecomm.copy()
+                    #         final_salary = final_jobrecomm.copy()
 
                     
-                            col=final_salary["salary"].dropna().to_list()
-                            y,m=utils.get_monthly_yearly_salary(col) #get_monthly_yearly_salary
-                            yearly_salary_range=utils.salary_converter(y) #salary_converter (get salary from str)
-                            monthly_salary_to_yearly=utils.salary_converter(m) # salary_converter (get salary from str)
-                            final_salary=yearly_salary_range+monthly_salary_to_yearly
-                            salary_df=pd.DataFrame(final_salary,columns=['Salary Range'])
-                            sal_count = salary_df['Salary Range'].count() 
+                    #         col=final_salary["salary"].dropna().to_list()
+                    #         y,m=utils.get_monthly_yearly_salary(col) #get_monthly_yearly_salary
+                    #         yearly_salary_range=utils.salary_converter(y) #salary_converter (get salary from str)
+                    #         monthly_salary_to_yearly=utils.salary_converter(m) # salary_converter (get salary from str)
+                    #         final_salary=yearly_salary_range+monthly_salary_to_yearly
+                    #         salary_df=pd.DataFrame(final_salary,columns=['Salary Range'])
+                    #         sal_count = salary_df['Salary Range'].count() 
 
                             
-                            st.write(" **SALARY RANGE FROM** ", sal_count, "**SALARY VALUES PROVIDED**")
-                            fig2 = px.box(salary_df, y= "Salary Range", width=500,title="Salary Range For The Given Job Profile")
-                            fig2.update_yaxes(showticklabels=True,title="Salary Range in Rupees" )
-                            fig2.update_xaxes(visible=True, showticklabels=True)
-                            st.write(fig2)
+                    #         st.write(" **SALARY RANGE FROM** ", sal_count, "**SALARY VALUES PROVIDED**")
+                    #         fig2 = px.box(salary_df, y= "Salary Range", width=500,title="Salary Range For The Given Job Profile")
+                    #         fig2.update_yaxes(showticklabels=True,title="Salary Range in Rupees" )
+                    #         fig2.update_xaxes(visible=True, showticklabels=True)
+                    #         st.write(fig2)
                                         
                     # expander for jobs df ---------------------------display#
                     db_expander = st.expander(label='Job Recommendations:')
@@ -289,11 +294,14 @@ def app():
                                 raise jobException(e, sys)
                         final_jobrecomm['externalApplyLink'] = final_jobrecomm['externalApplyLink'].apply(make_clickable)
                         final_jobrecomm['url'] = final_jobrecomm['url'].apply(make_clickable)
+
                         # final_jobrecomm['salary'].replace({"0":"Not Available"}, inplace=True)
                         final_df=final_jobrecomm[['company','positionName_x','description','location','salary', 'rating', 'reviewsCount', "externalApplyLink", 'url']]
                         final_df.rename({'company': 'Company', 'positionName_x': 'Position Name', 'description' : 'Job Description', 'location' : 'Location', 'salary' : 'Salary', 'rating' : 'Company Rating', 'reviewsCount' : 'Company ReviewCount', 'externalApplyLink': 'Web Apply Link', 'url': 'Indeed Apply Link' }, axis=1, inplace=True)
-                        show_df = final_df.to_html(escape=False)
-                        st.write(show_df, unsafe_allow_html=True)    
+                        # show_df = final_df.to_html(escape=False)
+                        # st.write(show_df, unsafe_allow_html=True)    
+                        show_df = final_df.to_html(escape=False, formatters={"Job Description": lambda x: f'<div style="height: 200px; overflow: auto;">{x}</div>'})
+                        st.write(show_df, unsafe_allow_html=True)
 
                     csv=convert_df(final_df)
                     st.download_button("Press to Download",csv,"file.csv","text/csv",key='download-csv')           

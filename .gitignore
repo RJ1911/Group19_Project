@@ -132,3 +132,7 @@ dmypy.json
 .pyre/
 
 .cv_to_df/
+
+data/
+documents/
+notebook/
